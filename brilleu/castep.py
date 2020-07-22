@@ -1,16 +1,16 @@
 # brilleu -- an interface between brille and Euphonic
 # Copyright 2020 Greg Tucker
-# 
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
@@ -31,30 +31,24 @@ import os
 import struct
 import numpy as np
 
-def read_castep_bin_symmetry(seedname, path):
+def read_castep_bin_symmetry(filename):
     """
     Reads symmetry data from a .castep_bin or .check file and returns it in a dictionary
 
     Parameters
     ----------
-    seedname : str
-        Seedname of file(s) to read
-    path : str
-        Path to dir containing the file(s), if in another directory
+    filename : str
+        Full filename including path to castep_bin or check file
 
     Returns
     -------
     data_dict : dict
         A dict with the following keys: 'symmetry_operations', 'symmetry_'disps'
     """
-    file = os.path.join(path, seedname + '.castep_bin')
-    if not os.path.isfile(file):
-        print(
-            '{:s}.castep_bin file not found, trying to read {:s}.check'
-            .format(seedname, seedname))
-        file = os.path.join(path, seedname + '.check')
+    if not os.path.isfile(filename):
+        raise Exception('File {} not found'.format(filename))
 
-    with open(file, 'rb') as f:
+    with open(filename, 'rb') as f:
         int_type = '>i4'
         float_type = '>f8'
         header = ''

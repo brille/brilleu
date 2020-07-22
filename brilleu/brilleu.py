@@ -1,16 +1,16 @@
 # brilleu -- an interface between brille and Euphonic
 # Copyright 2020 Greg Tucker
-# 
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
@@ -22,7 +22,8 @@ Q points.
 """
 import numpy as np
 
-import spglib
+import yaml
+from pathlib import Path
 
 from euphonic import ForceConstants
 from euphonic import QpointPhononModes as EuQpointPhononModes
@@ -32,14 +33,15 @@ from euphonic import ureg
 
 import brille
 
-from .spglib import BrSpgl
+from .castep import read_castep_bin_symmetry
+from .crystal import BrCrystal
 from .utilities import broaden_modes, half_cpu_count, degenerate_check
 
 class BrillEu:
     """
     Efficient interpolation of phonon intensity at arbitrary Q points.
 
-    The Euphonic data classes can be used to, e.g., interpolate CASTEP dynamical
+    The Euphonic data classes can be used to, e.g., interpolate dynamical
     force matrices at arbitary Q points. It can then use that information to
     determine eigen values (squared excitation energy) and eigen vectors
     (atom displacements) for the 3×[number of atoms] phonon branches. Finally
@@ -55,11 +57,12 @@ class BrillEu:
     first-irreducible-Brillouin-zone point, q, for any arbitrary reciprocal
     space point, Q.
 
-    The BrillEu object uses lattice information from the Euphonic object and the
-    package spglib to determine the conventional unit cell equivalent to that
-    used in, e.g., CASTEP calculations. This unit cell information is then used
-    to construct the primitive first irreducible Brillouin zone and a brille
-    grid. The gridded-points are then used by the Euphonic object to calculate
+    The BrillEu object must be constructed with the symmetry information of its
+    lattice. The symmetry operators can be read from a CASTEP file or a Hall
+    symbol can be read from a Phonopy summary file. In either case the symmetry
+    information is used to construc a first irreducible Brillouin zone which is
+    used to define the boundary of a :py:module:`brille` grid object.
+    The gridded-points are then used by the Euphonic object to calculate
     ωᵢ(q) and ϵᵢⱼ(q), which are placed in the brille object at their respective
     grid points. When an external request is made to the BrillEu object to
     calculate Sᵢ(Q) it first uses the filled brille object to interpolate ωᵢ(Q)
@@ -71,58 +74,54 @@ class BrillEu:
     """
 
     # pylint: disable=r0913,r0914
-    def __init__(self, FCData,
-                 scattering_lengths=None, cell_is_primitive=None,
-                 sort=True, vf=0, hall=None, parallel=False, **kwds):
-        """Initialize a new BrillEu object from an existing Euphonic object."""
+    def __init__(self, FCData, Grid, crystal, scattering_lengths=None, parallel=False, **kwds):
+        """
+        Initialize a new BrillEu object from an existing euphonic.ForceConstants
+        and brille.BZ*dc grid objects. The force constants and grid should be
+        defined in the *same* lattice, but ensuring that this is true is left
+        to the user.
+        """
+        msg = "Unexpected data type {}, expect failures."
         if not isinstance(FCData, ForceConstants):
-            msg = "Unexpected data type {}, expect failures."
             print(msg.format(type(FCData)))
         self.data = FCData
+        # known brille <double,complex<double>> grid-like objects
+        bzgrids = (brille.BZMeshQdc, brille.BZNestQdc, brille.BZTrellisQdc)
+        if not isinstance(Grid, bzgrids):
+            print(msg.format(type(Grid)))
+        self.grid = Grid
+        if not isinstance(crystal, BrCrystal):
+            print(msg.format(type(crystal)))
+        self.crystal = crystal
+        # fake the scattering length dictionary if its not valid input
         if not isinstance(scattering_lengths, dict):
             scattering_lengths = {k: 1 for k in np.unique(self.data.crystal.atom_type)}
         self.scattering_lengths = scattering_lengths
-        self.brspgl = BrSpgl(self.data.crystal, hall=hall)
-        # Construct the BZGrid, by default using the conventional unit cell
-        grid_q = self.__define_grid(**kwds)
-        # Calculate ωᵢ(Q) and ⃗ϵᵢⱼ(Q), and fill the BZGrid:
-        # Select only those keyword arguments which Euphonic expects:
-        cfp_keywords = ('asr', 'dipole', 'eta_scale', 'reduce_qpts', 'fall_back_on_python')
-        cfp_dict = {k: kwds[k] for k in cfp_keywords if k in kwds}
-        # splitting and insert_gamma can modify the number of returned Q points
-        # ensure we provide sensible (for brille) defaults
-        cfp_dict['splitting'] = kwds.get('splitting', False)
-        cfp_dict['insert_gamma'] = kwds.get('insert_gamma', False)
-        # the parallel keyword should apply to the Euphonic code too, unless
-        # if use_c is already present
-        cfp_dict['use_c'] = kwds.get('use_c', parallel)
-        if cfp_dict['use_c']:
-            cfp_dict['n_threads'] = kwds.get('n_threads', half_cpu_count())
-        if cfp_dict['splitting'] or cfp_dict['insert_gamma']:
-            print('Options which modify the number of Q points can not be used with brille. Expect problems.')
-        # calculate_qpoint_phonon_modes returns the frequencies and eigenvectors
-        # equivalent to the properties .freqs and .eigenvecs
-        # but we need to make sure we grab _freqs (or _reduced_freqs)
-        # since Euphonic no longer attempts to handle varying units
-        # internally
-        qωε = self.data.calculate_qpoint_phonon_modes(grid_q, **cfp_dict)
-        # freq = self.data.freqs.to('millielectron_volt').magnitude
-        freq = qωε.frequencies.to('meV').magnitude  # (n_pt, n_br)
-        vecs = qωε.eigenvectors # (n_pt, n_br, n_io, 3)
-        vecs = degenerate_check(grid_q, freq, vecs)
-        self._fill_grid(freq, vecs, vf=vf, sort=sort)
+
         self.parallel = parallel
 
-    def _fill_grid(self, freq, vecs, vf=0, sort=False):
-        n_pt = self.grid.invA.shape[0]
-        n_io = self.data.crystal.n_atoms
-        n_br = 3*n_io
-        if freq.shape == (n_pt, n_br):
-            freq = freq.reshape(n_pt, n_br, 1)
-        if freq.shape != (n_pt, n_br, 1):
-            raise Exception('freqiencies have wrong shape')
-        if vecs.shape != (n_pt, n_br, n_io, 3):
-            raise Exception('eigenvectors have wrong shape')
+        self._calculate_and_fill_grid(**kwds)
+
+    def _calculate_and_fill_grid(self, cost_function=0, sort=False, **kwds):
+        qpt = self.grid.rlu
+        # use the ForceConstants to calculate phonon modes at the gridded Q
+        qωε = self.QpointPhononModes(qpt, **kwds, interpolate=False)
+        # ensure that the frequencies are in meV and keep just their magnitudes
+        frq = qωε.ω #(n_pt, n_br)
+        # the eigenvectors must be moved from their orthogonal representation
+        vec = self.crystal.orthogonal_to_basis_eigenvectors(qωε.ε)
+        # attempt to disambiguate any degenerate modes (is this necessary any more?)
+        vec = degenerate_check(qpt, frq, vec)
+        # verify that the data shape is right
+        n_pt = qpt.shape[0]
+        n_at = self.data.crystal.n_atoms
+        n_br = 3*n_at
+        if frq.shape == (n_pt, n_br):
+            frq = frq.reshape(n_pt, n_br, 1)
+        if frq.shape != (n_pt, n_br, 1):
+            raise Exception('Frequencies have the wrong shape')
+        if vec.shape != (n_pt, n_br, n_at, 3):
+            raise Exception('Eigenvectors have the wrong shape')
         # We must provide extra content information to enable efficient
         # interpolation and possible rotations. All arrays provided to fill
         # must be 3+ dimensional -- the first dimension is over the points of
@@ -147,65 +146,11 @@ class BrillEu:
         # each branch eigenvector is comprised of n_ions displacement 3-vectors
         # which transform via the phonon Γ function,
         # so [1,0,0,0] ≡ (1,) and [0,n_ions*3,0,3] ≡ (0,3*n_io,0,3)
-        freq_el = (1,)
-        freq_wght = (13605.693, 0., 0.) # Rydberg/meV
-        vecs_el = (0, 3*n_io, 0, 3, 0, vf) # n_scalar, n_vector, n_matrix, rotates_like (phonon eigenvectors), scalar cost function, vector cost function
-        vecs_wght = (0., 1., 0.)
-        self.grid.fill(freq, freq_el, freq_wght, self.brspgl.orthogonal_to_conventional_eigenvectors(vecs), vecs_el, vecs_wght, sort)
-
-
-    def sort_branches(self):
-        """Sort the phonon branches stored at all mapped grip points.
-
-        By comparing the difference in phonon branch energy and the angle
-        between the branch eigenvectors it is possible to determine a cost
-        matrix for assigning the branches on one grid point to those on a
-        neighbouring grid point. The Munkres' Assignment algorithm is then used
-        to determine a local branch permutation, which is ultimately used in
-        determining a global branch permutation for each grid point.
-
-        The cost for each branch-branch assignment is the weighted sum of the
-        difference in eigen energies and the angle between eigenvectors:
-
-            Cᵢⱼ = [energy_weight]*√(ωᵢ-ωⱼ)²
-                + [angle_weight]*acos(<ϵᵢ,ϵⱼ>/|ϵᵢ||ϵⱼ|)
-
-        """
-        if sort and callable(getattr(self.grid, 'sort', None)):
-            self.grid.sort()
-
-    # pylint: disable=c0103,w0613,no-member
-    def __define_grid(self, mesh=False, nest=False, **kwds):
-        brillouin_zone = self.brspgl.get_conventional_BrillouinZone()
-        if mesh:
-            self.__make_mesh(brillouin_zone, **kwds)
-        elif nest:
-            self.__make_nest(brillouin_zone, **kwds)
-        else:
-            self.__make_trellis(brillouin_zone, **kwds)
-
-        # We need to make sure that we pass gridded Q points in the primitive
-        # lattice, since that is what Euphonic expects:
-        return self.brspgl.conventional_to_input_Q(self.grid.rlu)
-
-    def __make_mesh(self, bz, max_size=-1, max_points=-1, num_levels=3, **kwds):
-        self.grid = brille.BZMeshQdc(bz, max_size, num_levels, max_points)
-
-    def __make_trellis(self, bz, max_volume=None, number_density=None, always_triangulate=False, **kwds):
-        if max_volume is not None:
-            self.grid = brille.BZTrellisQdc(bz, max_volume, always_triangulate)
-        #elif number_density is not None:
-        #    self.grid = brille.BZTrellisQdc(bz, number_density)
-        else:
-            raise Exception("keyword 'max_volume' or 'number_density' required")
-
-    def __make_nest(self, bz, max_branchings=5, max_volume=None, number_density=None, **kwds):
-        if max_volume is not None:
-            self.grid = brille.BZNestQdc(bz, max_volume, max_branchings)
-        elif number_density is not None:
-            self.grid = brille.BZNestQdc(bz, number_density, max_branchings)
-        else:
-            raise Exception("keyword 'max_volume' or 'number_density' required")
+        frq_el = (1,)
+        frq_wght = (13605.693, 0., 0.) # Rydberg/meV
+        vec_el = (0, n_br, 0, 3, 0, cost_function) # n_scalar, n_vector, n_matrix, rotates_like (phonon eigenvectors), scalar cost function, vector cost function
+        vec_wght = (0., 1., 0.)
+        self.grid.fill(frq, frq_el, frq_wght, vec, vec_el, vec_wght, sort)
 
     def __call__(self, *args, **kwargs):
         """Calculate and return Sᵢ(Q) and ωᵢ(Q) or S(Q,ω) depending on input.
@@ -225,7 +170,6 @@ class BrillEu:
             return self.s_qw(*args, kwargs) # keep kwargs as a dictionary
         else:
             raise RuntimeError('Only one or two arguments expected, (Q,) or (Q,ω), expected')
-
 
     def s_q(self, q_hkl, interpolate=True, **kwargs):
         """Calculate Sᵢ(Q) where Q = (q_h,q_k,q_l)."""
@@ -264,13 +208,21 @@ class BrillEu:
                 frqs, vecs = self.grid.ir_interpolate_at(q_pt, self.parallel, threads, not moveinto)
                 return BrQωε(q_pt, np.squeeze(frqs), vecs)
         else:
-            cfp_kwds = ('asr', 'dipole', 'eta_scale', 'splitting',
-                        'insert_gamma', 'reduce_qpts', 'fall_back_on_python')
-            cfp_dict = {k: kwds[k] for k in cfp_kwds if k in kwds}
-            cfp_dict['use_c'] = kwds.get('use_c', parallel)
-            if cfp_dict['use_c']:
-                cfp_dict['n_threads'] = kwds.get('n_threads', half_cpu_count())
-            euqpm = self.data.calculate_qpoint_phonon_modes(self.brspgl.conventional_to_input_Q(q_pt), **cfp_dict)
+            # Euphonic accepts only a limited set of keyword arguments:
+            eukwds = ('asr', 'dipole', 'eta_scale', 'reduced_qpts', 'fall_back_on_python')
+            eudict = {k: kwds[k] for k in eukwds if k in kwds}
+            # some keywords modify the number of retured Q points and are unsupported
+            unsupported = ('splitting', 'insert_gamma')
+            eudict.update({k: False for k in unsupported})
+            # however we should allow them to be overridden (for testing?)
+            eudict.update({k: kwds[k] for k in unsupported if k in kwds})
+            # the control of parallelism is special:
+            eudict['use_c'] = kwds.get('use_c', self.parallel)
+            if eudict['use_c']:
+                eudict['n_threads'] = kwds.get('n_threads', half_cpu_count())
+            if np.any([eudict.get(x) for x in unsupported]):
+                print('Unsupported options present. Expect problems with brille')
+            euqpm = self.data.calculate_qpoint_phonon_modes(q_pt, **eudict)
             return BrQωε(q_pt, euqpm.frequencies, euqpm.eigenvectors)
 
     def w_q(self, q_pt, **kwds):
@@ -345,6 +297,61 @@ class BrillEu:
         if s_q_e.shape != shapein:
             s_q_e = s_q_e.reshape(shapein)
         return s_q_e
+
+    @classmethod
+    def from_castep(cls, filename, **kwds):
+        fc = ForceConstants.from_castep(filename)
+        # move the next 9 lines to a brilleu.Symmetry.from_castep classmethod?
+        symdict = read_castep_bin_symmetry(filename)
+        M = fc.crystal.cell_vectors.magnitude.T
+        invM = np.linalg.inv(M)
+        cartesianW = symdict['symmetry_operations']
+        # convert the symop matrices to units of the lattice basis vectors
+        W = np.round(np.einsum('ij,xjk,kl->xil', invM, cartesianW , M))
+        sym = brille.Symmetry(W, symdict['symmetry_disps'])
+        # hand off to the general constructor now that we have ForceConstants and symmetry
+        return cls.from_forceconstants(fc, symmetry=sym, **kwds)
+
+    @classmethod
+    def from_phonopy(cls, path='.', summary_name='phonopy.yaml', **kwds):
+        eukwds = ('born_name', 'fc_name', 'fc_format')
+        eudict = {k: kwds[k] for k in eukwds if k in kwds}
+        fc = ForceConstants.from_phonopy(path=path, summary_name=summary_name, **eudict)
+        # read out the Hall symbol from the phonopy summary file
+        with open(Path(path, summary_name), 'r') as file_handle:
+            summary_data = yaml.safe_load(file_handle)
+        hall_symbol = summary_data['space_group']['Hall_symbol']
+        # hand off to the general constructor
+        return cls.from_forceconstants(fc, hall=hall_symbol, **kwds)
+
+    @classmethod
+    def from_forceconstants(cls, fc, hall=None, symmetry=None, mesh=None, nest=None, **kwds):
+        brxtal = BrCrystal(fc.crystal, hall=hall, symmetry=symmetry)
+        bz = brxtal.get_BrillouinZone()
+        if mesh:
+            grid = _make_mesh(bz, **kwds)
+        elif nest:
+            grid = _make_nest(bz, **kwds)
+        else:
+            grid = _make_trellis(bz, **kwds)
+        return BrillEu(fc, grid, brxtal, **kwds)
+
+def _make_mesh(bz, max_size=-1, max_points=-1, num_levels=3, **kwds):
+    return brille.BZMeshQdc(bz, max_size, num_levels, max_points)
+
+def _make_nest(bz, max_volume=None, number_density=None, max_branchings=5, **kwds):
+    if max_volume:
+        return brille.BZNestQdc(bz, max_volume, max_branchings)
+    elif number_density:
+        return brille.BZNestQdc(bz, number_density, max_branchings)
+    else:
+        raise Exception("keyword 'max_volume' or 'number_density' required")
+
+def _make_trellis(bz, max_volume=None, always_triangulate=False, **kwds):
+    if max_volume:
+        return brille.BZTrellisQdc(bz, max_volume, always_triangulate)
+    else:
+        raise Exception("keyword 'max_volume' required")
 
 
 class BrQωε:

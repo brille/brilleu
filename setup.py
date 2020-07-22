@@ -5,7 +5,7 @@ try:
 except ImportError:
 	from distutils.core import setup, find_packages, Extension
 	from distutils.command.install import install
-	
+
 
 
 with open('README.md', 'r') as f:
@@ -31,8 +31,7 @@ setup(
 	],
 	python_requires='~=3.6',
 	install_requires=[
-		'brille==0.4.0',
+		'brille==0.4.2',
 		'euphonic==0.3.0',
-		'spglib>=1.12.2',			
 	]
 )
