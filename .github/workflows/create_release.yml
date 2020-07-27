@@ -1,0 +1,25 @@
+name: Create Prerelease
+
+on:
+  push:
+    tags:
+      - 'v0*' # only run for pre v1 tags
+
+jobs:
+  build:
+    name: Create Prerelease
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Prerelease ${{ github.ref }}
+          draft: false
+          prelease: true
+          
