@@ -20,7 +20,6 @@ from scipy.stats import norm, cauchy
 
 from .timer import timed
 
-@timed
 def broaden_modes(energy, omega, s_i, res_par_tem):
     """Compute S(Q,E) for a number of dispersion relations and intensities.
 
@@ -51,7 +50,6 @@ def broaden_modes(energy, omega, s_i, res_par_tem):
         s_q_e = s_i
     return s_q_e
 
-@timed
 def delta(x_0, x_i, y_i):
     """
     Compute the δ-function.
@@ -63,7 +61,6 @@ def delta(x_0, x_i, y_i):
     y_0[x_0 == x_i] = y_i[x_0 == x_i]
     return y_0
 
-@timed
 def gaussian(x_0, x_i, y_i, fwhm):
     """Compute the normal distribution with full-width-at-half-maximum fwhm."""
     if not np.isscalar(fwhm):
@@ -73,7 +70,6 @@ def gaussian(x_0, x_i, y_i, fwhm):
     y_0 = norm.pdf(z_0) * y_i
     return y_0
 
-@timed
 def lorentzian(x_0, x_i, y_i, fwhm):
     """Compute the Cauchy distribution with full-width-at-half-maximum fwhm."""
     if not np.isscalar(fwhm):
@@ -83,7 +79,6 @@ def lorentzian(x_0, x_i, y_i, fwhm):
     y_0 = cauchy.pdf(z_0) * y_i
     return y_0
 
-@timed
 def voigt(x_0, x_i, y_i, params):
     """Compute the convolution of a normal and Cauchy distribution.
 
@@ -117,7 +112,6 @@ def voigt(x_0, x_i, y_i, params):
     y_0 = area*np.real(special.wofz(real_z + 1j*imag_z))/gamma
     return y_0
 
-@timed
 def sho(x_0, x_i, y_i, fwhm, t_k):
     """Compute the Simple-Harmonic-Oscillator distribution."""
     # (partly) ensure that all inputs have the same shape:
