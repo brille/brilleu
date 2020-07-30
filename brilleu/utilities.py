@@ -13,12 +13,33 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
+import os
+import sys
+import tempfile
+import requests
 import numpy as np
 from scipy import special
 from scipy.stats import norm, cauchy
+from pathlib import Path
 
-from .timer import timed
+def fetchObjType(objtype, material, **kwds):
+    base_url = "https://raw.githubusercontent.com/brille/brilleu/master/brilleu"
+    file_to_fetch = material + ".castep_bin"
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        r = requests.get(base_url + "/" + file_to_fetch)
+        if not r.ok:
+            raise Exception("Fetching {} failed with reason '{}'".format(file_to_fetch, r.reason))
+        out_path = str(Path(tmp_dir, file_to_fetch))
+        open(out_path, 'wb').write(r.content)
+        return objtype.from_castep(out_path, **kwds)
+
+def getObjType(objtype, material, **kwds):
+    docs_dir = os.path.dirname(os.path.abspath(__file__))
+    try:
+        return objtype.from_castep(str(Path(docs_dir, material+".castep_bin")), **kwds)
+    except FileNotFoundError:
+        print('{} not found in {}. Fetching remote content.'.format(material, docs_dir))
+        return fetchObjType(objtype, material, **kwds)
 
 def broaden_modes(energy, omega, s_i, res_par_tem):
     """Compute S(Q,E) for a number of dispersion relations and intensities.

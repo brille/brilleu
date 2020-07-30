@@ -35,7 +35,7 @@ import brille
 
 from .castep import read_castep_bin_symmetry
 from .crystal import BrCrystal
-from .utilities import broaden_modes, half_cpu_count, degenerate_check
+from .utilities import broaden_modes, half_cpu_count, degenerate_check, getObjType
 
 class BrillEu:
     """
@@ -419,3 +419,6 @@ class BrQωε:
         temperature = self.T * ureg('kelvin') if self.T else None
 
         return EuStructureFactor(crystal, self.Q, frqs, sf*ureg('bohr**2'), temperature=temperature)
+
+def getBrillEuObj(*args, **kwds):
+    return getObjType(BrillEu, *args, **kwds)
