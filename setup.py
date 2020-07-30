@@ -20,7 +20,7 @@ setup(
 	description='an interface between brille and Euphonic',
 	long_description=long_description,
 	long_description_content_type="text/markdown",
-	url="https://github.com/g5t/brilleu",
+	url="https://github.com/brille/brilleu",
 	packages=find_packages(),
 	classifiers=[
 		"Development Status :: 3 - Alpha",
