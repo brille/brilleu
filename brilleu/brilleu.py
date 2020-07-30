@@ -164,9 +164,9 @@ class BrillEu:
         """
         if len(args) < 1:
             raise RuntimeError('At least one argument, Q, is required')
-        elif len(args) is 1:
+        elif len(args) == 1:
             return self.s_q(*args, **kwargs) # let the caller figure out how to handle a euphonic.StructureFactor
-        elif len(args) is 2:
+        elif len(args) == 2:
             return self.s_qw(*args, kwargs) # keep kwargs as a dictionary
         else:
             raise RuntimeError('Only one or two arguments expected, (Q,) or (Q,ω), expected')

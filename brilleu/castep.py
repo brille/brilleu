@@ -55,7 +55,7 @@ def read_castep_bin_symmetry(filename):
         first_sym_read = True
         while header.strip() != b'END':
             header = _read_entry(f)
-            if header.find(b'NUM_CRYSTAL_SYMMETRY_OPERATIONS') is 0:
+            if header.find(b'NUM_CRYSTAL_SYMMETRY_OPERATIONS') == 0:
                 # There are two sets of symmetry information for some reason
                 # hopefully the first one is what we want
                 if first_sym_read:
@@ -96,13 +96,13 @@ def _read_cell_symmetry(n_ops, file_obj, int_type, float_type):
         otherwise all entries are zero(?).
     """
     header = b''
-    while header.find(b'SYMMETRY_TOL') is -1:
+    while header.find(b'SYMMETRY_TOL') == -1:
         header = _read_entry(file_obj)
-        if header.find(b'CRYSTAL_SYMMETRY_OPERATIONS') is 0:
+        if header.find(b'CRYSTAL_SYMMETRY_OPERATIONS') == 0:
             ops = np.moveaxis(np.reshape(_read_entry(file_obj, float_type), (n_ops, 3, 3)), 2, 1)
-        elif header.find(b'CELL_SYMMORPHIC') is 0:
+        elif header.find(b'CELL_SYMMORPHIC') == 0:
             is_symmorphic = _read_entry(file_obj, int_type)
-        elif header.find(b'CRYSTAL_SYMMETRY_DISPS') is 0:
+        elif header.find(b'CRYSTAL_SYMMETRY_DISPS') == 0:
             divs = np.reshape(_read_entry(file_obj, float_type), (n_ops, 3))
     return ops, divs
 
