@@ -14,5 +14,5 @@ jobs:
     - name: Run Pytest in Docker container
       uses: ./.github/actions/pytest
       with:
-        python_packages: brille
+        python_packages: "pytest brille"
         python_only_packages: euphonic
