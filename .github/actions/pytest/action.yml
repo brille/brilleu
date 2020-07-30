@@ -1,0 +1,22 @@
+name: Python3 Pytest GitHub Action
+description: 'Run Pytest on a Python:3-slim docker image'
+author: 'Greg Tucker'
+branding:
+  icon: 'open-book'
+  color: 'green'
+inputs:
+  test_dir:
+    description: 'Directory relative to $\{{ GITHUB_WORKSPACE }} where the pytest should be run'
+    required: false
+  arguments:
+    description: 'Extra arguments for pytest'
+    required: false
+  python_packages:
+    description: 'Extra python packages required to run pytest'
+    required: false
+  python_only_packages:
+    description: 'Extra python packages required to run pytests which can only be installed with the --python-only argument'
+    required: false
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
