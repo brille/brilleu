@@ -17,7 +17,11 @@ jobs:
 
     - name: Update Python pip and required packages
       run: |
-        python -m pip install --upgrade pip pytest brille euphonic
+        python -m pip install --upgrade pip pytest
+
+    - name: Install package to ensure dependencies are met
+      run: |
+        python -m pip install .
 
     - name: Run Pytest
       run: |
