@@ -33,6 +33,7 @@ setup(
 	install_requires=[
 		'brille==0.4.2',
 		'euphonic==0.3.0',
-		'pyyaml'
+		'pyyaml>=5',
+		'requests'
 	]
 )
