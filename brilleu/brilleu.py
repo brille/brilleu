@@ -96,6 +96,9 @@ class BrillEu:
         # fake the scattering length dictionary if its not valid input
         if not isinstance(scattering_lengths, dict):
             scattering_lengths = {k: 1 for k in np.unique(self.data.crystal.atom_type)}
+        for k in scattering_lengths.keys():
+            if not isinstance(scattering_lengths[k], ureg.Quantity):
+                scattering_lengths[k] *= ureg('fm')
         self.scattering_lengths = scattering_lengths
 
         self.parallel = parallel
@@ -178,8 +181,8 @@ class BrillEu:
         if interpolate:
             sf = qωε.calculate_structure_factor(self.data.crystal, self.scattering_lengths, **kwargs)
         else:
-            # make the Euphonc.QpointPhononModes object, frequencies default to meV (good)
-            euqpm = EuQpointPhononModes(self.data.crystal, qωε.Q, qωε.ω, qωε.ε)
+            # make the Euphonc.QpointPhononModes object
+            euqpm = EuQpointPhononModes(self.data.crystal, qωε.Q, qωε.ω*ureg('meV'), qωε.ε)
             # using InterpolationData.calculate_structure_factor
             # which only allows a limited number of keyword arguments
             sf_keywords = ('dw',)
@@ -385,13 +388,13 @@ class BrQωε:
 
         mass = crystal.atom_mass.to('unified_atomic_mass_unit').magnitude
 
-        sl = np.array([scattering_lengths[x] for x in crystal.atom_type])
-        if isinstance(sl, ureg.Quantity):
-            sl = sl.to('bohr').magnitude
-        else:
-            sl = sl * ureg('fm').to('bohr').magnitude
+        # convert the scattering length dictorary to Quantities if necessary
+        sl = {k: v if isinstance(v, ureg.Quantity) else v*ureg('fm') for k,v in scattering_lengths.items()}
+        # convert each to bohr radii and drop the unit
+        sl = {k: v.to('bohr').magnitude for k,v in sl.items()}
+        # expand the dictionary into an array and divide by atomic mass
+        normalisation = [sl[x] for x in crystal.atom_type]/np.sqrt(mass)
 
-        normalisation = sl/np.sqrt(mass)
         # Calculate the exponential factor for all ions and q-points
         # atom_r in fractional coords, so q⋅r = 2π*qh*rx + 2π*qk*ry...
         # TODO FIXME are Q and r sure to be expressed in the same lattice?
