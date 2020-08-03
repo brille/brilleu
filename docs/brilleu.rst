@@ -1,0 +1,2 @@
+.. automodule:: brilleu.brilleu
+  :members:

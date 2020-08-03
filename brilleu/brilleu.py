@@ -15,10 +15,17 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
+The `BrillEu` class
+-------------------
 Define a class BrillEu to act as the interface between brille and Euphonic.
-
 Thus enabling efficient interpolation of CASTEP-derived phonons at arbitrary
 Q points.
+
+.. currentmodule:: brilleu
+
+.. autoclass:: BrillEu
+   :members:
+
 """
 import numpy as np
 
@@ -41,27 +48,27 @@ class BrillEu:
     """
     Efficient interpolation of phonon intensity at arbitrary Q points.
 
-    The Euphonic data classes can be used to, e.g., interpolate dynamical
-    force matrices at arbitary Q points. It can then use that information to
-    determine eigen values (squared excitation energy) and eigen vectors
-    (atom displacements) for the 3×[number of atoms] phonon branches. Finally
-    Q and the eigen vectors can be used to determine the structure factors of
-    the phonon branches, which are proportional to the doubly-differential
-    cross section measured by neutron scattering.
+    The :std:doc:`euphonic:index` data classes can be used to, e.g., interpolate
+    dynamical force matrices at arbitary Q points. It can then use that
+    information to determine eigen values (squared excitation energy) and
+    eigen vectors (atom displacements) for the 3×[number of atoms] phonon
+    branches. Finally Q and the eigen vectors can be used to determine the
+    structure factors of the phonon branches, which are proportional to the
+    doubly-differential cross section measured by neutron scattering.
 
-    brille provides classes to hold arbitrarily-shaped data at the points of a
-    grid filling the first irreducible Brillouin zone of the primitive lattice
-    reciprocal unit cell. The brille classes can then use linear interpolation
-    to estimate their held-data at points between grid-points, the translational
-    and rotational symmetry of the primitive lattice to find an equivalent
-    first-irreducible-Brillouin-zone point, q, for any arbitrary reciprocal
-    space point, Q.
+    :std:doc:`brille:index` provides classes to hold arbitrarily-shaped data at
+    the points of a grid filling the first irreducible Brillouin zone of the
+    primitive lattice reciprocal unit cell. The classes can then use linear
+    interpolation to estimate their held-data at points between grid-points,
+    the translational and rotational symmetry of the lattice to find an
+    equivalent first-irreducible-Brillouin-zone point, q, for any arbitrary
+    reciprocal space point, Q.
 
     The BrillEu object must be constructed with the symmetry information of its
     lattice. The symmetry operators can be read from a CASTEP file or a Hall
     symbol can be read from a Phonopy summary file. In either case the symmetry
     information is used to construc a first irreducible Brillouin zone which is
-    used to define the boundary of a :py:module:`brille` grid object.
+    used to define the boundary of a :std:doc:`brille:index` grid object.
     The gridded-points are then used by the Euphonic object to calculate
     ωᵢ(q) and ϵᵢⱼ(q), which are placed in the brille object at their respective
     grid points. When an external request is made to the BrillEu object to
@@ -76,10 +83,15 @@ class BrillEu:
     # pylint: disable=r0913,r0914
     def __init__(self, FCData, Grid, crystal, scattering_lengths=None, parallel=False, **kwds):
         """
-        Initialize a new BrillEu object from an existing euphonic.ForceConstants
-        and brille.BZ*dc grid objects. The force constants and grid should be
-        defined in the *same* lattice, but ensuring that this is true is left
-        to the user.
+        Initialize a new BrillEu object from an existing
+        :py:class:`euphonic.force_constants.ForceConstants` and one of
+        :py:class:`brille.BZMeshQdd`, :py:class:`brille.BZMeshQdc`,
+        :py:class:`brille.BZMeshQcc`, :py:class:`brille.BZNestQdd`,
+        :py:class:`brille.BZNestQdc`, :py:class:`brille.BZNestQcc`,
+        :py:class:`brille.BZTrellisQdd`, :py:class:`brille.BZTrellisQdc`,
+        or :py:class:`brille.BZTrellisQcc` grid objects
+        The force constants and grid should be defined in the *same* lattice,
+        but ensuring that this is true is left to the user.
         """
         msg = "Unexpected data type {}, expect failures."
         if not isinstance(FCData, ForceConstants):
@@ -158,12 +170,27 @@ class BrillEu:
     def __call__(self, *args, **kwargs):
         """Calculate and return Sᵢ(Q) and ωᵢ(Q) or S(Q,ω) depending on input.
 
+        Parameters
+        ----------
+        Q : :math:`N\\times 3` :py:class:`numpy.ndarray`
+
+        ω : :math:`N` :py:class:`numpy.ndarray`
+
+        Returns
+        -------
+        :py:class:`euphonic.structure_factor.StructureFactor` or :math:`N` :py:class:`numpy.ndarray`
+            depending on whether only :math:`\\mathbf{Q}` was provided or both
+            :math:`(\\mathbf{Q},E)`
+
+        Note
+        ----
         If one positional argument is provided it is assumed to be Q in which
         case both the intensity, Sᵢ(Q), and eigen-energy, ωᵢ(Q), for all phonon
-        branches are returned as a tuple.
+        branches are returned as a :py:class:`euphonic.structure_factor.StructureFactor`.
         If two positional arguments are provided they are assumed to be Q and ω
         in which case Sᵢ(Q) and ωᵢ(Q) are used in conjunction with keyword
         arguments 'resfun' and 'param' to calculate a convolved S(Q,ω).
+
         """
         if len(args) < 1:
             raise RuntimeError('At least one argument, Q, is required')
@@ -196,7 +223,45 @@ class BrillEu:
         return self.grid.debye_waller(q_hkl, meVs2A2, temperature)
 
     def QpointPhononModes(self, q_pt, moveinto=True, interpolate=True, dw=None, temperature=5., threads=-1, **kwds):
-        """Calculate ωᵢ(Q) where Q = (q_h,q_k,q_l)."""
+        """Determine ωᵢ(Q) and εᵢ(Q) where Q = (q_h,q_k,q_l)
+
+        Parameters
+        ----------
+        q_pt : :math:`N\\times 3` :py:class:`numpy.ndarray`
+            The positions in reciprocal lattice units wehre the phonon energies
+            and eigenvectors should be determined
+        moveinto : logical, optional
+            If `True` symmetry-equivalent irreducible momentum vectors are found
+            for each `q_pt` and the output includes symmetry effects. If `False`
+            all `q_pt` *must* be within the irreducible Brillouin zone or
+            (possibly unhandled) errors are likely -- no verification of this
+            momentum vector requirement is performed.
+        interpolate : logical, optional
+            Determines whether interpolation via the :std:doc:`brille:index`
+            grid object or a calculation via the held
+            :py:class:`euphonic.force_constants.ForceConstants`
+            is performed.
+        dw : logical, optional
+            Only has effect if `interpolate ≡ True` then the Debye-Waller factor
+            is determined for the provided `q_pt` following the interpolation.
+            This option exists to avoid copying `q_pt` from Python to C++ twice.
+        temperature : float, optional
+            The temperature at which to calculate the Debye-Waller factor
+        threads: int, optional
+            Only has effect if `obj.parallel ≡ True`. If less than one the
+            OpenMP parallel sections will utilize `OMP_NUM_THREADS` or the
+            number of logical cores on the system.
+        **kwds :, optional
+            See :py:class:`euphonic.qpoint_phonon_modes.QpointPhononModes` for
+            details of additional keyword arguments supported when the logical
+            `interpolate ≡ False`. Any other keyword arguments are ignored.
+
+        Returns
+        -------
+        :py:class:`brilleu.brilleu.BrQωε`
+            A stripped-down object similar to a
+            :py:class:`euphonic.qpoint_phonon_modes.QpointPhononModes`
+        """
         if interpolate:
             # Interpolate the previously-stored eigen values/vectors for each Q
             # each grid point has a (n_br, 1) values array and a (n_br, n_io, 3)
@@ -229,34 +294,66 @@ class BrillEu:
             return BrQωε(q_pt, euqpm.frequencies, euqpm.eigenvectors)
 
     def w_q(self, q_pt, **kwds):
+        """
+        Variant of :py:meth:`brilleu.brilleu.BrillEu.QPointPhononModes`
+
+        See :py:meth:`brilleu.brilleu.BrillEu.QPointPhononModes` for
+        possible input.
+
+        Returns
+        -------
+        :py:class:`numpy.ndarray`
+            Only the determined eigenvalues
+        """
         qωε = self.QpointPhononModes(q_pt, **kwds)
         return qωε.ω
 
     def s_qw(self, q_hkl, energy, p_dict):
-        """Calculate S(Q,E) for Q = (q_h, q_k, q_l) and E=energy.
+        """Calculate :math:`S(\\mathbf{Q},E)` including an energy linewidth.
 
-        The last input, p_dict, should be a dict with keys 'resfun' and 'param'
-        controlling the phonon-linewidth.
+        Parameters
+        ----------
+        q_hkl : :math:`N\\times 3` :py:class:`numpy.ndarray`
+            The positions in reciprocal lattice units where the phonon spectral
+            weight should be determined
+        energy : :math:`N` :py:class:`numpy.ndarray`
+            The energies at which the phonon spectral weight should be determined
+        calc_bose : logical, optional
+            Whether a Bose-factor correction should be applied
+        temperature : float, optional, default = 5 K
+            The temperature used in the Bose and Debye-Waller calculation
+        unique_q : logical, optional, default False
+            If `True` the input `q_hkl` are reduced to only unique vectors
+            before calling :py:meth:`brilleu.brilleu.BrillEu.s_q`
+        resfun : str, optional, default δ(ω-ωᵢ)
+            (energy) resolution function used in broadening modes.
+            See below.
+        param : float array-like (required if `resfun` provided)
+            parameters for the broading resolution function
 
-        ========================== ===================== ================
-        Linewidth function           'resfun' (one of)       'param'
-        ========================== ===================== ================
-        Simple Harmonic Oscillator 'sho', 's'                 fwhm
-        Gaussian                   'gauss', 'g'               fwhm
-        Lorentzian                 'lorentz', 'lor', 'l'      fwhm
-        Voigt                      'voi', 'v'            [g_fwhm, l_fwhm]
-        ========================== ===================== ================
+        Note
+        ----
+        Selecting the energy linewidth function:
+
+        ========================== =========================== ==================
+        Linewidth function           `resfun` (one of)             `param`
+        ========================== =========================== ==================
+        Simple Harmonic Oscillator `'sho'`, `'s'`                   `fwhm`
+        Gaussian                   `'gauss'`, `'g'`                 `fwhm`
+        Lorentzian                 `'lorentz'`, `'lor'`, `'l'`      `fwhm`
+        Voigt                      `'voi'`, `'v'`              `[g_fwhm, l_fwhm]`
+        ========================== =========================== ==================
 
         For each linewidth function, the full name is also a valid value for
-        'resfun', e.g., 'resfun':'Simple Harmonic Oscillator'.
-        Functions taking a single 'param' value will use the first element in
-        any non-scalar value.
-        The Simple Harmonic Oscillator function looks for an additional key,
-        'temperature', in p_dict to optionally include the temperature.
+        `resfun`, e.g., `'resfun': 'Simple Harmonic Oscillator'`.
+        Functions taking a single `param` value will use the first element in
+        any non-scalar value. The Simple Harmonic Oscillator function also uses
+        the `temperature` key in p_dict to optionally include the temperature.
 
-        Additional keys in p_dict are allowed and are passed on to Euphonic
-        as keyword arguments to the calculate_structure_factor method.
-
+        Returns
+        -------
+        :math:`N` :py:class:`numpy.ndarray`
+            A vector with :math:`S(\\mathbf{Q},E)`
         """
         res_par_tem = ('delta',)
         if 'resfun' in p_dict and 'param' in p_dict:
@@ -303,6 +400,13 @@ class BrillEu:
 
     @classmethod
     def from_castep(cls, filename, **kwds):
+        """
+        Wrapper for :py:meth:`euphonic.force_constants.ForceConstants.from_castep`
+
+        Pulls :py:class:`euphonic.force_constants.ForceConstants` from the
+        binary CASTEP file provided then uses custom reader to extract symmetry
+        operations as well.
+        """
         fc = ForceConstants.from_castep(filename)
         # move the next 9 lines to a brilleu.Symmetry.from_castep classmethod?
         symdict = read_castep_bin_symmetry(filename)
@@ -317,6 +421,12 @@ class BrillEu:
 
     @classmethod
     def from_phonopy(cls, path='.', summary_name='phonopy.yaml', **kwds):
+        """
+        Wrapper for :py:meth:`euphonic.force_constants.ForceConstants.from_phonopy`
+
+        Pulls :py:class:`euphonic.force_constants.ForceConstants` from the
+        Phonopy file(s) provided then pulls Hall symbol from the summary file.
+        """
         eukwds = ('born_name', 'fc_name', 'fc_format')
         eudict = {k: kwds[k] for k in eukwds if k in kwds}
         fc = ForceConstants.from_phonopy(path=path, summary_name=summary_name, **eudict)
@@ -329,6 +439,35 @@ class BrillEu:
 
     @classmethod
     def from_forceconstants(cls, fc, hall=None, symmetry=None, mesh=None, nest=None, **kwds):
+        """
+        Common constructor which builds :std:doc:`brille:index` grid
+
+        Parameters
+        ----------
+        fc : :py:class:`euphonic.force_constants.ForceConstants`
+            The force constants obtained from :std:doc:`euphonic:index`
+        hall : str or int, optional
+            A valid Hall symbol or (deprecated) Spglib Hall number encoding the
+            symmetry operations of the spacegroup
+        symmetry : :py:class:`brille.Symmetry`, optional
+            The spacegroup symmetry operations or their generators
+        mesh : logical, optional
+            Construct a :py:class:`brille.BZMeshQdc` grid
+        nest : logical , optional
+            Construct a :py:class:`brille.BZNestQdc` grid
+        **kwds :
+            passed to constructor of grid object and class constructor
+            :py:class:`brilleu.brilleu.BrillEu`
+
+        Returns
+        -------
+        :py:class:`brilleu.brilleu.BrillEu`
+
+        Note
+        ----
+        If both `mesh` and `nest` are not `True` a :py:class:`brille.BZTrellisQdc`
+        will be created. This is the default behaviour.
+        """
         brxtal = BrCrystal(fc.crystal, hall=hall, symmetry=symmetry)
         bz = brxtal.get_BrillouinZone()
         if mesh:
@@ -358,6 +497,13 @@ def _make_trellis(bz, max_volume=None, always_triangulate=False, **kwds):
 
 
 class BrQωε:
+    """
+    Similar to a :py:class:`euphonic.qpoint_phonon_modes.QpointPhononModes`
+
+    This object holds the results of the
+    :py:meth:`brille.brille.BrillEu.QpointPhononModes` calculation
+    in such a way that the phonon structure factor can be easily calculated.
+    """
     def __init__(self, Q, ω, ε, Wd=None, T=None):
         self.Q = Q
         self.ω = ω.to('meV').magnitude if isinstance(ω, ureg.Quantity) else ω
@@ -368,9 +514,10 @@ class BrQωε:
 
     def calculate_structure_factor(self, crystal, scattering_lengths, **kwargs):
         """
-        Calculate the one phonon inelastic neutron scattering
-        dynamic structure factor at each stored Q point.
-        Adapted from the same-named method in euphonic.
+        Calculate the one phonon inelastic neutron scattering dynamic structure factor
+
+        Adapted from the :py:class:`euphonic.structure_factor.StructureFactor`
+        constructor.
 
         Parameters
         ----------
@@ -381,6 +528,9 @@ class BrQωε:
             Dictionary of spin and isotope averaged coherent scattering lengths
             for each element in the structure, with lengths in fm.
 
+        Returns
+        -------
+        :py:class:`euphonic.structure_factor.StructureFactor`
         """
         if not isinstance(crystal, EuCrystal):
             raise Exception('A Euphonic Crystal object is requred input')
@@ -424,4 +574,9 @@ class BrQωε:
         return EuStructureFactor(crystal, self.Q, frqs, sf*ureg('bohr**2'), temperature=temperature)
 
 def getBrillEuObj(*args, **kwds):
+    """
+    For loading local directory or fetching from remote repository into a BrillEu object
+
+    See :py:func:`brilleu.utilities.getObjType` for details.
+    """
     return getObjType(BrillEu, *args, **kwds)

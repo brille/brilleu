@@ -15,8 +15,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-Read symmetry information from ``CASTEP`` binary files
-------------------------------------------------------
+Read symmetry from ``CASTEP`` binary files
+------------------------------------------
 
 .. currentmodule:: brilleu.castep
 
@@ -33,7 +33,7 @@ import numpy as np
 
 def read_castep_bin_symmetry(filename):
     """
-    Reads symmetry data from a .castep_bin or .check file and returns it in a dictionary
+    Reads symmetry data from a `.castep_bin` or `.check` file and returns it in a dictionary
 
     Parameters
     ----------
@@ -43,7 +43,7 @@ def read_castep_bin_symmetry(filename):
     Returns
     -------
     data_dict : dict
-        A dict with the following keys: 'symmetry_operations', 'symmetry_'disps'
+        A dict with the following keys: `'symmetry_operations'`, `'symmetry_disps'`
     """
     if not os.path.isfile(filename):
         raise Exception('File {} not found'.format(filename))

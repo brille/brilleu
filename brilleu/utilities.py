@@ -13,6 +13,15 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+Additional useful utilities
+---------------------------
+
+.. currentmodule:: brilleu.utilities
+
+.. autosummary::
+    :toctree: _generate
+"""
 import os
 import sys
 import tempfile
@@ -23,6 +32,22 @@ from scipy.stats import norm, cauchy
 from pathlib import Path
 
 def fetchObjType(objtype, material, **kwds):
+    """Fetch remote `CASTEP` binary file from the :py:mod:`brilleu` repository
+
+    Parameters
+    ----------
+    objtype : class
+        The output class, must have a static `class.from_castep()` method
+    material : str
+        The basename of the `CASTEP` file, e.g, `'NaCl'` for `NaCl.castep_bin`
+    **kwds :
+        All keyword arguments are passed to the `class.from_castep()` constructor
+
+    Returns
+    -------
+    class
+        The requested `class` object constructed from the fetched file.
+    """
     base_url = "https://raw.githubusercontent.com/brille/brilleu/master/brilleu"
     file_to_fetch = material + ".castep_bin"
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -34,6 +59,26 @@ def fetchObjType(objtype, material, **kwds):
         return objtype.from_castep(out_path, **kwds)
 
 def getObjType(objtype, material, **kwds):
+    """Load a `CASTEP` binary file
+
+    If the file is not located in the `brilleu` module directory this function
+    will attempt to obtain it from the `brilleu` repository over any available
+    network connection.
+
+    Parameters
+    ----------
+    objtype : class
+        The output class, must have a static `class.from_castep()` method
+    material : str
+        The basename of the `CASTEP` file, e.g, `'NaCl'` for `NaCl.castep_bin`
+    **kwds :
+        All keyword arguments are passed to the `class.from_castep()` constructor
+
+    Returns
+    -------
+    class
+        The requested `class` object constructed from the fetched file.
+    """
     docs_dir = os.path.dirname(os.path.abspath(__file__))
     try:
         return objtype.from_castep(str(Path(docs_dir, material+".castep_bin")), **kwds)
@@ -49,12 +94,36 @@ def broaden_modes(energy, omega, s_i, res_par_tem):
     the form of a function name plus parameters (if required), calculate S(Q,E)
     at the provided energy positions.
 
-    The energy positions must have shape (Npoints,).
-    The dispersion and intensities must have been precalculated and should have
-    shape similar to (Npoints, Nmodes). This function calls one of five
-    available broadening functions, a simple harmonic oscillator, gaussian,
-    lorentzian, voigt, or delta function.
-    The retuned S(Q,E) array will have shape (Npoints, Nmodes).
+
+    Parameters
+    ----------
+    energy : :py:class:`numpy.ndarray`, :math:`N_{\\text{point}}`
+        The observation energies at which to calculate the broadened intensities
+    omega : :py:class:`numpy.ndarray`, :math:`N_{\\text{mode}}`
+        The characteristic energies of the modes to be broadened
+    s_i : :py:class:`numpy.ndarray`, :math:`N_{\\text{mode}}`
+        The integrated intensities of the modes to be broadened
+    res_par_tem : array-like
+        The broadening function choice (str) and its paramters as detailed below
+
+    Note
+    ----
+    Selecting the energy linewidth function:
+
+    ========================== ================ ================ ================
+    Linewidth function         `res_par_tem[0]` `res_par_tem[1]` `res_par_tem[2]`
+    ========================== ================ ================ ================
+    Simple Harmonic Oscillator `'s'`                 `fwhm`        `temperature`
+    Gaussian                   `'g'`                 `fwhm`
+    Lorentzian                 `'l'`                 `fwhm`
+    Voigt                      `'v'`                `g_fwhm`         `l_fwhm`
+    ========================== ================ ================ ================
+
+
+    Returns
+    -------
+    :math:`N` :py:class:`numpy.ndarray`, :math:`N_{\\text{point}} \\times N_{\\text{mode}}`
+        :math:`S(\\mathbf{Q},E)` for each mode at the observation energies
     """
     if res_par_tem[0] in ('s', 'sho', 'simpleharmonicoscillator'):
         s_q_e = sho(energy, omega, s_i, res_par_tem[1], res_par_tem[2])
@@ -76,6 +145,20 @@ def delta(x_0, x_i, y_i):
     Compute the δ-function.
 
     y₀ = yᵢ×δ(x₀-xᵢ)
+
+    Parameters
+    ----------
+    x_0 : :py:class:`numpy.ndarray`, :math:`N_{\\text{point}}`
+        The observations at which to calculate intensities
+    x_i : :py:class:`numpy.ndarray`, :math:`N_{\\text{point}} \\times N_{\\text{mode}}`
+        The independent values of the modes to be broadened
+    y_i : :py:class:`numpy.ndarray`, :math:`N_{\\text{point}} \\times N_{\\text{mode}}`
+        The dependent values of the modes to be broadened
+
+    Returns
+    -------
+    :py:class:`numpy.ndarray`
+        :math:`N_{\\text{point}} \\times N_{\\text{mode}}`
     """
     y_0 = np.zeros(y_i.shape, dtype=y_i.dtype)
     # y_0 = np.zeros_like(y_i)
@@ -83,7 +166,24 @@ def delta(x_0, x_i, y_i):
     return y_0
 
 def gaussian(x_0, x_i, y_i, fwhm):
-    """Compute the normal distribution with full-width-at-half-maximum fwhm."""
+    """Compute the normal distribution
+
+    Parameters
+    ----------
+    x_0 : :py:class:`numpy.ndarray`, :math:`N_{\\text{point}}`
+        The observations at which to calculate intensities
+    x_i : :py:class:`numpy.ndarray`, :math:`N_{\\text{point}} \\times N_{\\text{mode}}`
+        The independent values of the modes to be broadened
+    y_i : :py:class:`numpy.ndarray`, :math:`N_{\\text{point}} \\times N_{\\text{mode}}`
+        The dependent values of the modes to be broadened
+    fwhm : float
+        The full-width-at-half-maximum of the broadened modes
+
+    Returns
+    -------
+    :py:class:`numpy.ndarray`
+        :math:`N_{\\text{point}} \\times N_{\\text{mode}}`
+    """
     if not np.isscalar(fwhm):
         fwhm = fwhm[0]
     sigma = fwhm/np.sqrt(np.log(256))
@@ -92,7 +192,24 @@ def gaussian(x_0, x_i, y_i, fwhm):
     return y_0
 
 def lorentzian(x_0, x_i, y_i, fwhm):
-    """Compute the Cauchy distribution with full-width-at-half-maximum fwhm."""
+    """Compute the Cauchy distribution
+
+    Parameters
+    ----------
+    x_0 : :py:class:`numpy.ndarray`, :math:`N_{\\text{point}}`
+        The observations at which to calculate intensities
+    x_i : :py:class:`numpy.ndarray`, :math:`N_{\\text{point}} \\times N_{\\text{mode}}`
+        The independent values of the modes to be broadened
+    y_i : :py:class:`numpy.ndarray`, :math:`N_{\\text{point}} \\times N_{\\text{mode}}`
+        The dependent values of the modes to be broadened
+    fwhm : float
+        The full-width-at-half-maximum of the broadened modes
+
+    Returns
+    -------
+    :py:class:`numpy.ndarray`
+        :math:`N_{\\text{point}} \\times N_{\\text{mode}}`
+    """
     if not np.isscalar(fwhm):
         fwhm = fwhm[0]
     gamma = fwhm/2
@@ -107,12 +224,30 @@ def voigt(x_0, x_i, y_i, params):
     Gaussian) with full-width-at-half-max gᶠʷʰᵐ and a Cauchy distribution
     (a Lorentzian) with full-with-at-half-max lᶠʷʰᵐ. Computing the Voigt
     function exactly is computationally expensive, but it can be approximated
-    to (almost always nearly) machine precision quickly using the [Faddeeva
-    distribution](http://ab-initio.mit.edu/wiki/index.php/Faddeeva_Package).
+    to (almost always nearly) machine precision quickly using the
+    `Faddeeva distribution <http://ab-initio.mit.edu/wiki/index.php/Faddeeva_Package>`_.
 
-    The Voigt distribution is the real part of the Faddeeva distribution,
-    given an appropriate rescaling of the parameters. See, e.g.,
-    https://en.wikipedia.org/wiki/Voigt_profile.
+    The `Voigt distribution <https://en.wikipedia.org/wiki/Voigt_profile>`_
+    is the real part of the Faddeeva distribution,
+    given an appropriate rescaling of the parameters.
+
+    Parameters
+    ----------
+    x_0 : :py:class:`numpy.ndarray`, :math:`N_{\\text{point}}`
+        The observations at which to calculate intensities
+    x_i : :py:class:`numpy.ndarray`, :math:`N_{\\text{point}} \\times N_{\\text{mode}}`
+        The independent values of the modes to be broadened
+    y_i : :py:class:`numpy.ndarray`, :math:`N_{\\text{point}} \\times N_{\\text{mode}}`
+        The dependent values of the modes to be broadened
+    params : float, array-like
+        The full-width-at-half-maximum of the broadened modes. If scalar it is
+        the Gaussian width and the Lorentzian width is zero; otherwise the
+        Guassian then Lorentzian widths.
+
+    Returns
+    -------
+    :py:class:`numpy.ndarray`
+        :math:`N_{\\text{point}} \\times N_{\\text{mode}}`
     """
     if np.isscalar(params):
         g_fwhm = params
@@ -134,7 +269,26 @@ def voigt(x_0, x_i, y_i, params):
     return y_0
 
 def sho(x_0, x_i, y_i, fwhm, t_k):
-    """Compute the Simple-Harmonic-Oscillator distribution."""
+    """Compute the Simple-Harmonic-Oscillator distribution.
+
+    Parameters
+    ----------
+    x_0 : :py:class:`numpy.ndarray`, :math:`N_{\\text{point}}`
+        The observations at which to calculate intensities
+    x_i : :py:class:`numpy.ndarray`, :math:`N_{\\text{point}} \\times N_{\\text{mode}}`
+        The independent values of the modes to be broadened
+    y_i : :py:class:`numpy.ndarray`, :math:`N_{\\text{point}} \\times N_{\\text{mode}}`
+        The dependent values of the modes to be broadened
+    fwhm : float
+        The full-width-at-half-maximum of the broadened modes
+    t_k : float
+        The temperature at which to calculate the broadening
+
+    Returns
+    -------
+    :py:class:`numpy.ndarray`
+        :math:`N_{\\text{point}} \\times N_{\\text{mode}}`
+    """
     # (partly) ensure that all inputs have the same shape:
     if np.isscalar(fwhm):
         fwhm = fwhm * np.ones(y_i.shape)
@@ -307,14 +461,17 @@ def degenerate_check(q_pts, e_vals, e_vecs, primary=None):
 
 
 def align_eigenvectors(q_pts, e_vals, e_vecs, primary=None):
-    """Align all eigenvectors such that ℑ(ϵₚ⋅x̂)≡0 at each point.
+    """Align all eigenvectors such that :math:`\\Im(\\epsilon_p \\cdot \\hat{x}) = 0` at each point.
 
-    Pick a smothly-varying local coordinate system based on q for each point
-    provided and apply an arbitrary phase such that the primary atom eigenvector
-    is purely real and positive along the local x direction.
+    Pick a smothly-varying local coordinate system based on :math:`\\mathbf{q}`
+    for each point provided and apply an arbitrary phase such that the primary
+    atom eigenvector is purely real and positive along the local
+    :math:`\\mathbf{x}` direction.
     If a primary atom is not specified, pick one automatically which has the
-    smallest mean displacement along q̂, and therefore is most likely to have
-    a significant |ϵₚ⋅x̂|² for all q.
+    smallest mean displacement along :math:`\\hat{p}`, and therefore is most
+    likely to have a significant
+    :math:`\\left|\\epsilon_p \\cdot \\hat{x}\\right|` for all
+    :math:`\\mathbf{q}`.
     """
     n_pts, n_modes, n_atoms, n_dims = e_vecs.shape
     assert (n_pts, n_dims) == q_pts.shape

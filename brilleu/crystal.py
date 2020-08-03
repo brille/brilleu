@@ -13,6 +13,16 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+The `BrCrystal` class
+---------------------
+
+.. currentmodule:: brilleu.crystal
+
+.. autosummary::
+    :toctree: _generate
+
+"""
 
 import warnings
 import numpy as np
@@ -22,28 +32,28 @@ from euphonic import Crystal as EuCrystal
 import brille
 
 class BrCrystal:
+    """
+    The :py:class:`BrCrystal` object holds spacegroup and symmetry functionality
+    (intended for internal use only).
+
+    Parameters
+    ----------
+    eucr : :py:obj:`euphonic.crystal.Crystal`
+        Or any object with fields `cell_vectors`, `atom_r`, and `atom_type`
+    hall : int or str, optional
+        A valid Hall symbol or its number as defined in, e.g.,
+        :std:doc:`spglib:dataset`. Not all valid Hall symbols are assigned
+        numbers, so the use of Hall numbers is discouraged.
+    symmetry : :py:obj:`brille.Symmetry`, optional
+        The symmetry operations (or their generators) for the spacegroup
+        of the input crystal lattice
+
+    Note
+    ----
+    The input symmetry information *must* correspond to the input lattice
+    and no error checking is performed to confirm that this is the case.
+    """
     def __init__(self, eucr, hall=None, symmetry=None):
-        """
-        Construct a :py:obj:`brilleu.BrCrystal` object to hold spacegroup and
-        symmetry functionality (intended for internal use only).
-
-        Parameters
-        ----------
-        eucr : :py:obj:`euphonic.Crystal`
-            Or any object with fields `cell_vectors`, `atom_r`, and `atom_type`
-        hall : int or str [optional]
-            A valid Hall symbol or its number as defined in, e.g.,
-            :py:module:`spglib`. Not all valid Hall symbols are assigned
-            numbers, so the use of Hall numbers is discouraged.
-        symmetry : :py:obj:`brille.Symmetry` [optional]
-            The symmetry operations (or their generators) for the spacegroup
-            of the input crystal lattice
-
-        Note
-        ----
-        The input symmetry information *must* correspond to the input lattice
-        and no error checking is performed to confirm that this is the case.
-        """
         if not hall and not isinstance(symmetry, brille.Symmetry):
             raise Exception("Either the Hall group or a brille.Symmetry object must be provided")
         if not isinstance(eucr, EuCrystal):
@@ -57,21 +67,56 @@ class BrCrystal:
         self.symmetry = symmetry
 
     def get_basis(self):
+        """Return the basis as row-vectors of a matrix
+
+        Returns
+        -------
+        :py:class:`numpy.ndarray`
+            The basis vectors as the rows of a :math:`3 \\times 3` matrix
+        """
         return self.basis
 
     def get_inverse_basis(self):
+        """Return the inverse of the basis matrix
+
+        Returns
+        -------
+        :py:class:`numpy.ndarray`
+            A :math:`3 \\times 3` matrix
+        """
         return np.linalg.inv(self.get_basis())
 
     def get_atom_positions(self):
+        """Return the atom positions in units of the basis vectors
+
+        Returns
+        -------
+        :py:class:`numpy.ndarray`
+            A :math:`N_{\\text{atom}} \\times 3` array of positions
+        """
         return self.atom_positions
 
     def get_atom_index(self):
+        """Return the unique atom index for each atom in the basis
+
+        Returns
+        -------
+        :py:class:`numpy.ndarray`
+            A :math:`N_{\\text{atom}} \\times 3` array of unsigned integers
+            with each :math:`i < N_{\\text{atom}}`
+        """
         return self.atom_index
 
     def get_cell(self):
         return (self.basis, self.atom_positions, self.atom_index)
 
     def get_Direct(self):
+        """Return a Direct lattice object including the symmetry information
+
+        Returns
+        -------
+        :py:class:`brille.Direct`
+        """
         if self.hall:
             d = brille.Direct(*self.get_cell(), self.hall)
         else:
@@ -81,23 +126,46 @@ class BrCrystal:
         return d
 
     def get_BrillouinZone(self):
+        """Determine and return the irreducible Brillouin zone
+
+        Returns
+        -------
+        :py:class:`brille.BrillouinZone`
+        """
         return brille.BrillouinZone(self.get_Direct().star)
 
     def orthogonal_to_basis_eigenvectors(self, vecs):
-        # some quantities are expressed in an orthogonal coordinate system, e.g.
-        # eigenvectors, but brille needs them expressed in the units of the
-        # basis vectors of the lattice which it uses.
-        #
-        # we need to convert the eigenvector components from units of
-        # (x,y,z) to (a,b,c) via the inverse of the basis vectors:
-        # For column vectors ⃗x and ⃗a and A ≡ self._basis()
-        #        ⃗xᵀ = ⃗aᵀ A
-        # which can be inverted to find ⃗a from ⃗x
-        #       ⃗a = (A⁻¹)ᵀ ⃗x
-        # A⁻¹ is (3,3) and the eigenvectors are (n_pt, n_br, n_io, 3)
-        # we want to perform the matrix product of A⁻¹ with vecs[i,j,k,:]
-        # which can be most easily accomplished using numpy's einsum
-        # which even lets us skip the explicit transpose of A⁻¹
+        """
+        Convert a set of eigenvector from orthogonal to basis coordinates
+
+        Some quantities are expressed in an orthogonal coordinate system, e.g.
+        eigenvectors, but brille needs them expressed in the units of the
+        basis vectors of the lattice which it uses.
+
+        We need to convert the eigenvector components from units of
+        :math:`(x,y,z)` to :math:`(a,b,c)` via the inverse of the basis vectors.
+        For column vectors :math:`\\mathbf{x}` and :math:`\\mathbf{a}` and
+        basis matrix :math:`A` `≡ self.get_basis()`
+
+        .. math::
+            \\mathbf{x}^T = \\mathbf{a}^T A
+
+        which can be inverted to find :math:`\\mathbf{a}` from :math:`\\mathbf{x}`
+
+        .. math::
+            \\mathbf{a} = \\left(A^{-1}\\right)^T \\mathbf{x}
+
+        Parameters
+        ----------
+        vecs : :py:class:`numpy.ndarray`
+            :math:`N_{\\text{pt}} \\times N_{\\text{br}} \\times N_{\\text{atom}} \\times 3`
+            eigenvectors in the orthogonal coordinate system
+
+        Returns
+        -------
+        :py:class:`numpy.ndarray`
+            eigenvectors expressed in the basis coordinate system
+        """
         return np.einsum('ba,ijkb->ijka', self.get_inverse_basis(), vecs)
 
     def basis_to_orthogonal_eigenvectors(self, vecs):
