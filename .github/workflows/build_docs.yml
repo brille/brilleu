@@ -29,6 +29,5 @@ jobs:
       with:
         source_dir: repository
         pages_dir: pages
-        is_release: ${{ constains(github.event_name, 'release' )}}
+        is_release: ${{ contains(github.event_name, 'release' )}}
         create_readme: true
-  
