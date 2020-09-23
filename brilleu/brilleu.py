@@ -43,6 +43,7 @@ import brille
 from .castep import read_castep_bin_symmetry
 from .crystal import BrCrystal
 from .utilities import broaden_modes, half_cpu_count, degenerate_check, getObjType
+from .timeit import timeit
 
 class BrillEu:
     """
@@ -81,7 +82,7 @@ class BrillEu:
     """
 
     # pylint: disable=r0913,r0914
-    def __init__(self, FCData, Grid, crystal, scattering_lengths=None, parallel=False, **kwds):
+    def __init__(self, FCData, Grid, crystal, scattering_lengths=None, parallel=False, log=None, emit=None, **kwds):
         """
         Initialize a new BrillEu object from an existing
         :py:class:`euphonic.force_constants.ForceConstants` and one of
@@ -93,6 +94,10 @@ class BrillEu:
         The force constants and grid should be defined in the *same* lattice,
         but ensuring that this is true is left to the user.
         """
+        if emit:
+            self.emit = emit
+        if isinstance(log, dict):
+            self.log = log
         msg = "Unexpected data type {}, expect failures."
         if not isinstance(FCData, ForceConstants):
             print(msg.format(type(FCData)))
@@ -165,7 +170,12 @@ class BrillEu:
         frq_wght = (13605.693, 0., 0.) # Rydberg/meV
         vec_el = (0, n_br, 0, 3, 0, cost_function) # n_scalar, n_vector, n_matrix, rotates_like (phonon eigenvectors), scalar cost function, vector cost function
         vec_wght = (0., 1., 0.)
-        self.grid.fill(frq, frq_el, frq_wght, vec, vec_el, vec_wght, sort)
+        # self.grid.fill(frq, frq_el, frq_wght, vec, vec_el, vec_wght, sort)
+        self._inner_fill(frq, frq_el, frq_wght, vec, vec_el, vec_wght, sort)
+
+    @timeit
+    def _inner_fill(self, *args):
+        self.grid.fill(*args)
 
     def __call__(self, *args, **kwargs):
         """Calculate and return Sᵢ(Q) and ωᵢ(Q) or S(Q,ω) depending on input.
@@ -203,7 +213,7 @@ class BrillEu:
 
     def s_q(self, q_hkl, interpolate=True, **kwargs):
         """Calculate Sᵢ(Q) where Q = (q_h,q_k,q_l)."""
-        qωε = self.QpointPhononModes(q_hkl, **kwargs)
+        qωε = self.QpointPhononModes(q_hkl, interpolate=interpolate, **kwargs)
         # Finally calculate Sᵢ(Q)
         if interpolate:
             sf = qωε.calculate_structure_factor(self.data.crystal, self.scattering_lengths, **kwargs)
@@ -222,6 +232,7 @@ class BrillEu:
         meVs2A2 = self.data.crystal.atom_mass.to('meV*s**2/angstrom**2').magnitude
         return self.grid.debye_waller(q_hkl, meVs2A2, temperature)
 
+    @timeit
     def QpointPhononModes(self, q_pt, moveinto=True, interpolate=True, dw=None, temperature=5., threads=-1, **kwds):
         """Determine ωᵢ(Q) and εᵢ(Q) where Q = (q_h,q_k,q_l)
 
@@ -263,19 +274,25 @@ class BrillEu:
             :py:class:`euphonic.qpoint_phonon_modes.QpointPhononModes`
         """
         if interpolate:
+            if self.parallel and threads < 1:
+                threads = half_cpu_count()
+            print('QPointPhononModes with interpolation')
             # Interpolate the previously-stored eigen values/vectors for each Q
             # each grid point has a (n_br, 1) values array and a (n_br, n_io, 3)
             # eigenvectors array and interpolate_at returns a tuple with the
             # first entry a (n_pt, n_br, 1) values array and the second a
             # (n_pt, n_br, n_io, 3) eigenvectors array
             if dw:
+                print('QPointPhononModes with Debye-Waller factor')
                 mass = self.data.crystal.atom_mass.to('meV*s**2/angstrom**2').magnitude
                 frqs, vecs, Wd = self.grid.ir_interpolate_at_dw(q_pt, mass , temperature, self.parallel, threads, not moveinto)
                 return BrQωε(q_pt, np.squeeze(frqs), vecs, Wd, temperature)
             else:
+                print('QPointPhononModes without Debye-Waller factor')
                 frqs, vecs = self.grid.ir_interpolate_at(q_pt, self.parallel, threads, not moveinto)
                 return BrQωε(q_pt, np.squeeze(frqs), vecs)
         else:
+            print('QPointPhononModes without interpolation')
             # Euphonic accepts only a limited set of keyword arguments:
             eukwds = ('asr', 'dipole', 'eta_scale', 'reduced_qpts', 'fall_back_on_python')
             eudict = {k: kwds[k] for k in eukwds if k in kwds}
@@ -478,9 +495,11 @@ class BrillEu:
             grid = _make_trellis(bz, **kwds)
         return BrillEu(fc, grid, brxtal, **kwds)
 
+@timeit
 def _make_mesh(bz, max_size=-1, max_points=-1, num_levels=3, **kwds):
     return brille.BZMeshQdc(bz, max_size, num_levels, max_points)
 
+@timeit
 def _make_nest(bz, max_volume=None, number_density=None, max_branchings=5, **kwds):
     if max_volume:
         return brille.BZNestQdc(bz, max_volume, max_branchings)
@@ -489,6 +508,7 @@ def _make_nest(bz, max_volume=None, number_density=None, max_branchings=5, **kwd
     else:
         raise Exception("keyword 'max_volume' or 'number_density' required")
 
+@timeit
 def _make_trellis(bz, max_volume=None, always_triangulate=False, **kwds):
     if max_volume:
         return brille.BZTrellisQdc(bz, max_volume, always_triangulate)
