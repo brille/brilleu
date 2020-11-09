@@ -276,23 +276,19 @@ class BrillEu:
         if interpolate:
             if self.parallel and threads < 1:
                 threads = half_cpu_count()
-            print('QPointPhononModes with interpolation')
             # Interpolate the previously-stored eigen values/vectors for each Q
             # each grid point has a (n_br, 1) values array and a (n_br, n_io, 3)
             # eigenvectors array and interpolate_at returns a tuple with the
             # first entry a (n_pt, n_br, 1) values array and the second a
             # (n_pt, n_br, n_io, 3) eigenvectors array
             if dw:
-                print('QPointPhononModes with Debye-Waller factor')
                 mass = self.data.crystal.atom_mass.to('meV*s**2/angstrom**2').magnitude
                 frqs, vecs, Wd = self.grid.ir_interpolate_at_dw(q_pt, mass , temperature, self.parallel, threads, not moveinto)
                 return BrQωε(q_pt, np.squeeze(frqs), vecs, Wd, temperature)
             else:
-                print('QPointPhononModes without Debye-Waller factor')
                 frqs, vecs = self.grid.ir_interpolate_at(q_pt, self.parallel, threads, not moveinto)
                 return BrQωε(q_pt, np.squeeze(frqs), vecs)
         else:
-            print('QPointPhononModes without interpolation')
             # Euphonic accepts only a limited set of keyword arguments:
             eukwds = ('asr', 'dipole', 'eta_scale', 'reduced_qpts', 'fall_back_on_python')
             eudict = {k: kwds[k] for k in eukwds if k in kwds}
@@ -424,7 +420,13 @@ class BrillEu:
         binary CASTEP file provided then uses custom reader to extract symmetry
         operations as well.
         """
+        log = kwds.get('log', None)
+        if log is not None:
+            from datetime import datetime
+            ts = datetime.now()
         fc = ForceConstants.from_castep(filename)
+        if log is not None:
+            log['load_force_constants'] = datetime.now() - ts
         # move the next 9 lines to a brilleu.Symmetry.from_castep classmethod?
         symdict = read_castep_bin_symmetry(filename)
         M = fc.crystal.cell_vectors.magnitude.T

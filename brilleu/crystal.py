@@ -120,7 +120,7 @@ class BrCrystal:
         if self.hall:
             d = brille.Direct(*self.get_cell(), self.hall)
         else:
-            d = brille.Direct(*self.get_cell())
+            d = brille.Direct(*self.get_cell(), 'P1')
         if self.symmetry:
             d.spacegroup = self.symmetry
         return d
