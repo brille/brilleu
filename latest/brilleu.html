@@ -170,7 +170,7 @@ Thus enabling efficient interpolation of CASTEP-derived phonons at arbitrary
 Q points.</p>
 <dl class="py class">
 <dt id="brilleu.BrillEu">
-<em class="property">class </em><code class="sig-prename descclassname">brilleu.</code><code class="sig-name descname">BrillEu</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">FCData</span></em>, <em class="sig-param"><span class="n">Grid</span></em>, <em class="sig-param"><span class="n">crystal</span></em>, <em class="sig-param"><span class="n">scattering_lengths</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">parallel</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwds</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brilleu.BrillEu" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">brilleu.</code><code class="sig-name descname">BrillEu</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">FCData</span></em>, <em class="sig-param"><span class="n">Grid</span></em>, <em class="sig-param"><span class="n">crystal</span></em>, <em class="sig-param"><span class="n">scattering_lengths</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">parallel</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">log</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">emit</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwds</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brilleu.BrillEu" title="Permalink to this definition">¶</a></dt>
 <dd><p>Efficient interpolation of phonon intensity at arbitrary Q points.</p>
 <p>The <a class="reference external" href="https://euphonic.readthedocs.io/en/stable/index.html" title="(in Euphonic)"><span>Euphonic</span></a> data classes can be used to, e.g., interpolate
 dynamical force matrices at arbitary Q points. It can then use that
@@ -200,46 +200,6 @@ The more-likely use for BrillEu, however, will be in calculating S(Q,ω) in
 which case ωᵢ(Q) and Sᵢ(Q) are calculated as above and then a simple
 distribution (selected by the caller) is used to broaden each of the i
 phonon branches before combining their intensities.</p>
-<dl class="py method">
-<dt id="brilleu.BrillEu.QpointPhononModes">
-<code class="sig-name descname">QpointPhononModes</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">q_pt</span></em>, <em class="sig-param"><span class="n">moveinto</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">interpolate</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">dw</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">temperature</span><span class="o">=</span><span class="default_value">5.0</span></em>, <em class="sig-param"><span class="n">threads</span><span class="o">=</span><span class="default_value">- 1</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwds</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brilleu.BrillEu.QpointPhononModes" title="Permalink to this definition">¶</a></dt>
-<dd><p>Determine ωᵢ(Q) and εᵢ(Q) where Q = (q_h,q_k,q_l)</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>q_pt</strong> (<span class="math">\(N\times 3\)</span> <code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code>) – The positions in reciprocal lattice units wehre the phonon energies
-and eigenvectors should be determined</p></li>
-<li><p><strong>moveinto</strong> (<em>logical</em><em>, </em><em>optional</em>) – If <cite>True</cite> symmetry-equivalent irreducible momentum vectors are found
-for each <cite>q_pt</cite> and the output includes symmetry effects. If <cite>False</cite>
-all <cite>q_pt</cite> <em>must</em> be within the irreducible Brillouin zone or
-(possibly unhandled) errors are likely – no verification of this
-momentum vector requirement is performed.</p></li>
-<li><p><strong>interpolate</strong> (<em>logical</em><em>, </em><em>optional</em>) – Determines whether interpolation via the <a class="reference external" href="https://brille.github.io/stable/index.html" title="(in brille)"><span>brille</span></a>
-grid object or a calculation via the held
-<a class="reference external" href="https://euphonic.readthedocs.io/en/stable/force-constants.html#euphonic.force_constants.ForceConstants" title="(in Euphonic)"><code class="xref py py-class docutils literal notranslate"><span class="pre">euphonic.force_constants.ForceConstants</span></code></a>
-is performed.</p></li>
-<li><p><strong>dw</strong> (<em>logical</em><em>, </em><em>optional</em>) – Only has effect if <cite>interpolate ≡ True</cite> then the Debye-Waller factor
-is determined for the provided <cite>q_pt</cite> following the interpolation.
-This option exists to avoid copying <cite>q_pt</cite> from Python to C++ twice.</p></li>
-<li><p><strong>temperature</strong> (<em>float</em><em>, </em><em>optional</em>) – The temperature at which to calculate the Debye-Waller factor</p></li>
-<li><p><strong>threads</strong> (<em>int</em><em>, </em><em>optional</em>) – Only has effect if <cite>obj.parallel ≡ True</cite>. If less than one the
-OpenMP parallel sections will utilize <cite>OMP_NUM_THREADS</cite> or the
-number of logical cores on the system.</p></li>
-<li><p><strong>**kwds</strong> (<em>, </em><em>optional</em>) – See <a class="reference external" href="https://euphonic.readthedocs.io/en/stable/qpoint-phonon-modes.html#euphonic.qpoint_phonon_modes.QpointPhononModes" title="(in Euphonic)"><code class="xref py py-class docutils literal notranslate"><span class="pre">euphonic.qpoint_phonon_modes.QpointPhononModes</span></code></a> for
-details of additional keyword arguments supported when the logical
-<cite>interpolate ≡ False</cite>. Any other keyword arguments are ignored.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>A stripped-down object similar to a
-<a class="reference external" href="https://euphonic.readthedocs.io/en/stable/qpoint-phonon-modes.html#euphonic.qpoint_phonon_modes.QpointPhononModes" title="(in Euphonic)"><code class="xref py py-class docutils literal notranslate"><span class="pre">euphonic.qpoint_phonon_modes.QpointPhononModes</span></code></a></p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference internal" href="#brilleu.brilleu.BrQ" title="brilleu.brilleu.BrQωε"><code class="xref py py-class docutils literal notranslate"><span class="pre">brilleu.brilleu.BrQωε</span></code></a></p>
-</dd>
-</dl>
-</dd></dl>
-
 <dl class="py method">
 <dt id="brilleu.BrillEu.dw">
 <code class="sig-name descname">dw</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">q_hkl</span></em>, <em class="sig-param"><span class="n">temperature</span><span class="o">=</span><span class="default_value">0</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brilleu.BrillEu.dw" title="Permalink to this definition">¶</a></dt>
@@ -423,7 +383,7 @@ for each element in the structure, with lengths in fm.</p></li>
 
 <dl class="py class">
 <dt id="brilleu.brilleu.BrillEu">
-<em class="property">class </em><code class="sig-prename descclassname">brilleu.brilleu.</code><code class="sig-name descname">BrillEu</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">FCData</span></em>, <em class="sig-param"><span class="n">Grid</span></em>, <em class="sig-param"><span class="n">crystal</span></em>, <em class="sig-param"><span class="n">scattering_lengths</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">parallel</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwds</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brilleu.brilleu.BrillEu" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">brilleu.brilleu.</code><code class="sig-name descname">BrillEu</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">FCData</span></em>, <em class="sig-param"><span class="n">Grid</span></em>, <em class="sig-param"><span class="n">crystal</span></em>, <em class="sig-param"><span class="n">scattering_lengths</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">parallel</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">log</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">emit</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwds</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brilleu.brilleu.BrillEu" title="Permalink to this definition">¶</a></dt>
 <dd><p>Efficient interpolation of phonon intensity at arbitrary Q points.</p>
 <p>The <a class="reference external" href="https://euphonic.readthedocs.io/en/stable/index.html" title="(in Euphonic)"><span>Euphonic</span></a> data classes can be used to, e.g., interpolate
 dynamical force matrices at arbitary Q points. It can then use that
@@ -453,46 +413,6 @@ The more-likely use for BrillEu, however, will be in calculating S(Q,ω) in
 which case ωᵢ(Q) and Sᵢ(Q) are calculated as above and then a simple
 distribution (selected by the caller) is used to broaden each of the i
 phonon branches before combining their intensities.</p>
-<dl class="py method">
-<dt id="brilleu.brilleu.BrillEu.QpointPhononModes">
-<code class="sig-name descname">QpointPhononModes</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">q_pt</span></em>, <em class="sig-param"><span class="n">moveinto</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">interpolate</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">dw</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">temperature</span><span class="o">=</span><span class="default_value">5.0</span></em>, <em class="sig-param"><span class="n">threads</span><span class="o">=</span><span class="default_value">- 1</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwds</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brilleu.brilleu.BrillEu.QpointPhononModes" title="Permalink to this definition">¶</a></dt>
-<dd><p>Determine ωᵢ(Q) and εᵢ(Q) where Q = (q_h,q_k,q_l)</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>q_pt</strong> (<span class="math">\(N\times 3\)</span> <code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code>) – The positions in reciprocal lattice units wehre the phonon energies
-and eigenvectors should be determined</p></li>
-<li><p><strong>moveinto</strong> (<em>logical</em><em>, </em><em>optional</em>) – If <cite>True</cite> symmetry-equivalent irreducible momentum vectors are found
-for each <cite>q_pt</cite> and the output includes symmetry effects. If <cite>False</cite>
-all <cite>q_pt</cite> <em>must</em> be within the irreducible Brillouin zone or
-(possibly unhandled) errors are likely – no verification of this
-momentum vector requirement is performed.</p></li>
-<li><p><strong>interpolate</strong> (<em>logical</em><em>, </em><em>optional</em>) – Determines whether interpolation via the <a class="reference external" href="https://brille.github.io/stable/index.html" title="(in brille)"><span>brille</span></a>
-grid object or a calculation via the held
-<a class="reference external" href="https://euphonic.readthedocs.io/en/stable/force-constants.html#euphonic.force_constants.ForceConstants" title="(in Euphonic)"><code class="xref py py-class docutils literal notranslate"><span class="pre">euphonic.force_constants.ForceConstants</span></code></a>
-is performed.</p></li>
-<li><p><strong>dw</strong> (<em>logical</em><em>, </em><em>optional</em>) – Only has effect if <cite>interpolate ≡ True</cite> then the Debye-Waller factor
-is determined for the provided <cite>q_pt</cite> following the interpolation.
-This option exists to avoid copying <cite>q_pt</cite> from Python to C++ twice.</p></li>
-<li><p><strong>temperature</strong> (<em>float</em><em>, </em><em>optional</em>) – The temperature at which to calculate the Debye-Waller factor</p></li>
-<li><p><strong>threads</strong> (<em>int</em><em>, </em><em>optional</em>) – Only has effect if <cite>obj.parallel ≡ True</cite>. If less than one the
-OpenMP parallel sections will utilize <cite>OMP_NUM_THREADS</cite> or the
-number of logical cores on the system.</p></li>
-<li><p><strong>**kwds</strong> (<em>, </em><em>optional</em>) – See <a class="reference external" href="https://euphonic.readthedocs.io/en/stable/qpoint-phonon-modes.html#euphonic.qpoint_phonon_modes.QpointPhononModes" title="(in Euphonic)"><code class="xref py py-class docutils literal notranslate"><span class="pre">euphonic.qpoint_phonon_modes.QpointPhononModes</span></code></a> for
-details of additional keyword arguments supported when the logical
-<cite>interpolate ≡ False</cite>. Any other keyword arguments are ignored.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>A stripped-down object similar to a
-<a class="reference external" href="https://euphonic.readthedocs.io/en/stable/qpoint-phonon-modes.html#euphonic.qpoint_phonon_modes.QpointPhononModes" title="(in Euphonic)"><code class="xref py py-class docutils literal notranslate"><span class="pre">euphonic.qpoint_phonon_modes.QpointPhononModes</span></code></a></p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference internal" href="#brilleu.brilleu.BrQ" title="brilleu.brilleu.BrQωε"><code class="xref py py-class docutils literal notranslate"><span class="pre">brilleu.brilleu.BrQωε</span></code></a></p>
-</dd>
-</dl>
-</dd></dl>
-
 <dl class="py method">
 <dt id="brilleu.brilleu.BrillEu.dw">
 <code class="sig-name descname">dw</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">q_hkl</span></em>, <em class="sig-param"><span class="n">temperature</span><span class="o">=</span><span class="default_value">0</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brilleu.brilleu.BrillEu.dw" title="Permalink to this definition">¶</a></dt>
