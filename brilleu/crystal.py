@@ -40,6 +40,9 @@ class BrCrystal:
     ----------
     eucr : :py:obj:`euphonic.crystal.Crystal`
         Or any object with fields `cell_vectors`, `atom_r`, and `atom_type`
+    irreducible : logical
+        If True the BrillouinZone of this Crystal will be an irreducible
+        Brillouin zone, otherwise it will be the first Brillouin zone.
     hall : int or str, optional
         A valid Hall symbol or its number as defined in, e.g.,
         :std:doc:`spglib:dataset`. Not all valid Hall symbols are assigned
@@ -53,13 +56,14 @@ class BrCrystal:
     The input symmetry information *must* correspond to the input lattice
     and no error checking is performed to confirm that this is the case.
     """
-    def __init__(self, eucr, hall=None, symmetry=None):
+    def __init__(self, eucr, irreducible=True, hall=None, symmetry=None):
         if not hall and not isinstance(symmetry, brille.Symmetry):
             raise Exception("Either the Hall group or a brille.Symmetry object must be provided")
         if not isinstance(eucr, EuCrystal):
             print("Unexpected data type {}, expect failures.".format(type(eucr)))
         if symmetry and not isinstance(symmetry, brille.Symmetry):
             print('Unexpected data type {}, expect failures.'.format(type(symmetry)))
+        self.irreducible = irreducible
         self.basis = eucr.cell_vectors.to('angstrom').magnitude
         self.atom_positions = eucr.atom_r
         _, self.atom_index = np.unique(eucr.atom_type, return_inverse=True)
@@ -125,6 +129,10 @@ class BrCrystal:
             d.spacegroup = self.symmetry
         return d
 
+    def use_irreducible(self):
+        """Return a logical boolean value based on the stored irreducible property"""
+        return True if self.irreducible else False
+
     def get_BrillouinZone(self):
         """Determine and return the irreducible Brillouin zone
 
@@ -132,7 +140,7 @@ class BrCrystal:
         -------
         :py:class:`brille.BrillouinZone`
         """
-        return brille.BrillouinZone(self.get_Direct().star)
+        return brille.BrillouinZone(self.get_Direct().star, wedge_search=self.use_irreducible())
 
     def orthogonal_to_basis_eigenvectors(self, vecs):
         """

@@ -31,7 +31,7 @@ setup(
 	],
 	python_requires='~=3.6',
 	install_requires=[
-		'brille==0.5.0',
+		'brille==0.5.1',
 		'euphonic==0.3.0',
 		'pyyaml>=5',
 		'requests'

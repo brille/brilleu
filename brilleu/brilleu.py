@@ -281,12 +281,20 @@ class BrillEu:
             # eigenvectors array and interpolate_at returns a tuple with the
             # first entry a (n_pt, n_br, 1) values array and the second a
             # (n_pt, n_br, n_io, 3) eigenvectors array
+            if dw and not self.crystal.use_irreducible():
+                err = "brille can only calculate the Debye-Waller factor while "
+                err += "interpolating for irreducible Brillouin zones at present"
+                err += "\nPlease extend brille to use this functionality."
+                raise Error(err)
             if dw:
                 mass = self.data.crystal.atom_mass.to('meV*s**2/angstrom**2').magnitude
                 frqs, vecs, Wd = self.grid.ir_interpolate_at_dw(q_pt, mass , temperature, self.parallel, threads, not moveinto)
                 return BrQωε(q_pt, np.squeeze(frqs), vecs, Wd, temperature)
             else:
-                frqs, vecs = self.grid.ir_interpolate_at(q_pt, self.parallel, threads, not moveinto)
+                if self.crystal.use_irreducible():
+                    frqs, vecs = self.grid.ir_interpolate_at(q_pt, self.parallel, threads, not moveinto)
+                else:
+                    frqs, vecs = self.grid.interpolate_at(q_pt, self.parallel, threads, not moveinto)
                 return BrQωε(q_pt, np.squeeze(frqs), vecs)
         else:
             # Euphonic accepts only a limited set of keyword arguments:
@@ -457,7 +465,7 @@ class BrillEu:
         return cls.from_forceconstants(fc, hall=hall_symbol, **kwds)
 
     @classmethod
-    def from_forceconstants(cls, fc, hall=None, symmetry=None, mesh=None, nest=None, **kwds):
+    def from_forceconstants(cls, fc, irreducible=True, hall=None, symmetry=None, mesh=None, nest=None, **kwds):
         """
         Common constructor which builds :std:doc:`brille:index` grid
 
@@ -487,8 +495,10 @@ class BrillEu:
         If both `mesh` and `nest` are not `True` a :py:class:`brille.BZTrellisQdc`
         will be created. This is the default behaviour.
         """
-        brxtal = BrCrystal(fc.crystal, hall=hall, symmetry=symmetry)
+        brxtal = BrCrystal(fc.crystal, irreducible=irreducible, hall=hall, symmetry=symmetry)
         bz = brxtal.get_BrillouinZone()
+        if (mesh or nest) and not irreducible:
+            raise Error("BZNest and BZMesh do not yet support first Brillouin zone interpolation")
         if mesh:
             grid = _make_mesh(bz, **kwds)
         elif nest:
