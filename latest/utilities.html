@@ -181,13 +181,15 @@
 </table>
 <dl class="py class">
 <dt id="brilleu.crystal.BrCrystal">
-<em class="property">class </em><code class="sig-prename descclassname">brilleu.crystal.</code><code class="sig-name descname">BrCrystal</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">eucr</span></em>, <em class="sig-param"><span class="n">hall</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">symmetry</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brilleu.crystal.BrCrystal" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">brilleu.crystal.</code><code class="sig-name descname">BrCrystal</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">eucr</span></em>, <em class="sig-param"><span class="n">irreducible</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">hall</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">symmetry</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brilleu.crystal.BrCrystal" title="Permalink to this definition">¶</a></dt>
 <dd><p>The <a class="reference internal" href="#brilleu.crystal.BrCrystal" title="brilleu.crystal.BrCrystal"><code class="xref py py-class docutils literal notranslate"><span class="pre">BrCrystal</span></code></a> object holds spacegroup and symmetry functionality
 (intended for internal use only).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>eucr</strong> (<a class="reference external" href="https://euphonic.readthedocs.io/en/stable/crystal.html#euphonic.crystal.Crystal" title="(in Euphonic)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">euphonic.crystal.Crystal</span></code></a>) – Or any object with fields <cite>cell_vectors</cite>, <cite>atom_r</cite>, and <cite>atom_type</cite></p></li>
+<li><p><strong>irreducible</strong> (<em>logical</em>) – If True the BrillouinZone of this Crystal will be an irreducible
+Brillouin zone, otherwise it will be the first Brillouin zone.</p></li>
 <li><p><strong>hall</strong> (<em>int</em><em> or </em><em>str</em><em>, </em><em>optional</em>) – A valid Hall symbol or its number as defined in, e.g.,
 <a class="reference external" href="https://spglib.github.io/spglib/dataset.html" title="(in spglib v1.16)"><span>Spglib dataset</span></a>. Not all valid Hall symbols are assigned
 numbers, so the use of Hall numbers is discouraged.</p></li>
@@ -318,6 +320,12 @@ eigenvectors in the orthogonal coordinate system</p>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="brilleu.crystal.BrCrystal.use_irreducible">
+<code class="sig-name descname">use_irreducible</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brilleu.crystal.BrCrystal.use_irreducible" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a logical boolean value based on the stored irreducible property</p>
 </dd></dl>
 
 </dd></dl>
